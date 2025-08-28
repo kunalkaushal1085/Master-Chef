@@ -1,0 +1,12 @@
+#Hidden file
+index.py
+
+#Env file
+masterenv
+
+#pdf file
+*.pdf
+
+#.env file
+.env
+__pycache__/
