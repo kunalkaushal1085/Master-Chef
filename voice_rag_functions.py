@@ -1,4 +1,4 @@
-import os, re, wave, numpy as np, pyaudio, threading, queue, time
+import os, re, wave, numpy as np, threading, queue, time
 from pathlib import Path
 from dotenv import load_dotenv
 from docx import Document
