@@ -171,6 +171,7 @@ def get_emotional_opener(context_keywords):
 def init_chain():
     """Initialize the Rosendale Method coaching chain"""
     load_dotenv()
+    print(os.getenv("OPENAI_API_KEY"))
     openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     # Extract principles from available documents
