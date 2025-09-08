@@ -5,7 +5,8 @@ from voice_rag_functions import (
     mentor_answer,
     transcribe_audio,
     autocomplete_if_needed,
-    is_recipe_related
+    is_recipe_related,
+    terminal_voice_chat, quick_voice_question
 )
 from elevenlabs_functions import speak_text_to_stream
 
@@ -172,6 +173,37 @@ async def qa_text_to_speech(data: TextQuestion):
     """Legacy endpoint - redirects to coach_voice"""
     return await culinary_coach_voice(data)
 
+
+@app.post("/ask_audio_base64/")
+async def ask_audio_base64(file: UploadFile = File(...)):
+    """
+    User sends audio (question) → Mentor answers with Base64 audio
+    """
+    audio_bytes = await file.read()
+    transcription = transcribe_audio(audio_bytes, client)
+ 
+    if not transcription:
+        msg = "I couldn't understand clearly, please try again."
+        audio_stream = speak_text_to_stream(msg)
+    else:
+        full_query = autocomplete_if_needed(transcription, memory, llm)
+ 
+        if not is_recipe_related(full_query):
+            msg = "I'm here to coach you on cooking techniques and culinary principles."
+            audio_stream = speak_text_to_stream(msg)
+        else:
+            answer, emotion = mentor_answer(full_query, retriever, memory, llm)
+            audio_stream = speak_text_to_stream(answer)
+ 
+    audio_bytes = audio_stream.getvalue()
+    audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+ 
+    return JSONResponse(content={
+        "user_question": transcription if transcription else None,
+        "audio_base64": audio_base64,
+        "format": "mp3"
+    })
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

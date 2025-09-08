@@ -28,7 +28,9 @@ def clean_text_for_speech(text):
     
     return text
 
-def speak_text_to_stream(text, voice_id="O483h7ZB7zKaA4JmK9Wv"):
+# def speak_text_to_stream(text, voice_id="O483h7ZB7zKaA4JmK9Wv"):#previous voice 29-08-25
+# def speak_text_to_stream(text, voice_id="Mo9SFAWCFwzIAmrZsCLd"):#v2 voice use
+def speak_text_to_stream(text, voice_id="mEE6giLueLdSOaKRUws3"):#Thomas voice
     """Convert text to speech and return as BytesIO stream"""
     try:
         cleaned = clean_text_for_speech(text)
