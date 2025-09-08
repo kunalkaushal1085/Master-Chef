@@ -6,7 +6,7 @@ from voice_rag_functions import (
     transcribe_audio,
     autocomplete_if_needed,
     is_recipe_related,
-    terminal_voice_chat, quick_voice_question
+    #terminal_voice_chat, quick_voice_question
 )
 from elevenlabs_functions import speak_text_to_stream
 
