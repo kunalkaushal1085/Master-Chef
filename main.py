@@ -162,3 +162,7 @@ def ask_question_loop(request: AskQuestionRequest, session: Session = Depends(ge
     session.refresh(agent_msg)
 
     return AskQuestionResponse(text=response_text_loop, audio_base64=audio_base64)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
