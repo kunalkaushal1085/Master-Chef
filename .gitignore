@@ -5,7 +5,7 @@ index.py
 masterenv
 
 #pdf file
-*.pdf
+# *.pdf
 
 #.env file
 .env
