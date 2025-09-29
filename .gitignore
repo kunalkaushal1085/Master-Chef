@@ -15,5 +15,4 @@ backup.py
 main.zip
 
 # Ignore chroma DBs
-chroma_rosendale/chroma.sqlite3
-*.sqlite3
+chroma_rosendale
