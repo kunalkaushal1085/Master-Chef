@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from pydub import AudioSegment
 import speech_recognition as sr
+from fastapi.middleware.cors import CORSMiddleware
 from updated_rag import MasterChefAssistant
 from elevenlabs_functions import speak_text_to_stream
 from contextlib import asynccontextmanager
@@ -16,6 +17,7 @@ from sqlmodel import Session, select
 from db import get_session, create_db_and_tables  # import DB helpers
 from models import ChatMessage  # import models
 chef: MasterChefAssistant | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,6 +35,15 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Master Chef Continuous Voice API", lifespan=lifespan, docs_url="/docs", redoc_url="/redoc")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Add your frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods including GET, POST, PUT, DELETE, etc.
+    allow_headers=["*"],  # Allows all headers
+    expose_headers=["*"]
+)
 
 class InitChatResponse(BaseModel):
     user_id: str
