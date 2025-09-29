@@ -10,3 +10,6 @@ masterenv
 #.env file
 .env
 __pycache__/
+
+backup.py
+main.zip

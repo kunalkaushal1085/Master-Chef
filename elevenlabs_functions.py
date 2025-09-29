@@ -39,11 +39,11 @@ def speak_text_to_stream(text, voice_id="mEE6giLueLdSOaKRUws3"):#Thomas voice
         # Generate audio using ElevenLabs with correct client reference
         audio_generator = elevenlabs_client.text_to_speech.convert(
             voice_id=voice_id,
-            model_id="eleven_monolingual_v1",
+            model_id="eleven_flash_v2",
             text=cleaned,
             voice_settings={
                 "stability": 0.5,
-                "similarity_boost": 0.8,
+                "similarity_boost": 0.5,
                 "style": 0.2,
                 "use_speaker_boost": True
             }

@@ -1,209 +1,153 @@
-from fastapi import FastAPI, Response, UploadFile, File
+
+import uuid
+import base64
+import tempfile
+from datetime import datetime
+from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
-from voice_rag_functions import (
-    init_chain,
-    mentor_answer,
-    transcribe_audio,
-    autocomplete_if_needed,
-    is_recipe_related,
-    #terminal_voice_chat, quick_voice_question
-)
+from pydub import AudioSegment
+import speech_recognition as sr
+from updated_rag import MasterChefAssistant
 from elevenlabs_functions import speak_text_to_stream
+from contextlib import asynccontextmanager
 
-# Initialize the Rosendale Method coaching system
-print(" Initializing Culinary Mentor with Rosendale Method...")
-client, retriever, memory, llm = init_chain()
-app = FastAPI(title="Rosendale Method Culinary Coach", version="2.0")
+from sqlmodel import Session, select
 
-class TextQuestion(BaseModel):
-    question: str
+from db import get_session, create_db_and_tables  # import DB helpers
+from models import ChatMessage  # import models
+chef: MasterChefAssistant | None = None
 
-@app.get("/")
-def read_root():
-    return {
-        "message": "Rosendale Method Culinary Coach API", 
-        "description": "Teaching cooking principles, not recipes",
-        "version": "2.0"
-    }
-
-@app.post("/coach/")
-async def culinary_coach(data: TextQuestion):
-    """Text question → Text coaching response"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup
     try:
-        print(f" Student question: {data.question}")
-        
-        # Enhance short questions
-        full_query = autocomplete_if_needed(data.question, memory, llm)
-        
-        # Validate cooking-related content
-        if not is_recipe_related(full_query):
-            return {"error": "Please ask about cooking techniques, methods, or culinary principles."}
-        
-        # Get coaching response
-        answer, emotion_type = mentor_answer(full_query, retriever, memory, llm)
-        
-        print(f"Coach response: {answer}")
-        print(f" Emotion: {emotion_type}")
-        
-        return {
-            "question": data.question,
-            "enhanced_question": full_query if full_query != data.question else None,
-        
-            "coaching_response": answer,
-            "emotion": emotion_type
-        }
-        
+        create_db_and_tables()
     except Exception as e:
-        import traceback
-        print("ERROR:", traceback.format_exc())
-        return {"error": str(e)}
+        print(f"WARN: DB init failed: {e}")
+    global chef
+    chef = MasterChefAssistant()
+    ok = chef.initialize()
+    if not ok:
+        print("WARN: Assistant failed to initialize")
+        chef = None
+    yield
 
-@app.post("/coach_voice/")
-async def culinary_coach_voice(data: TextQuestion):
-    """Text question → Audio coaching response"""
-    try:
-        print(f" Voice coaching request: {data.question}")
-        
-        # Enhance short questions
-        full_query = autocomplete_if_needed(data.question, memory, llm)
-        
-        # Validate cooking-related content
-        if not is_recipe_related(full_query):
-            error_msg = "Please ask about cooking techniques, methods, or culinary principles."
-            audio_stream = speak_text_to_stream(error_msg)
-            return Response(
-                audio_stream.getvalue(),
-                media_type="audio/mpeg",
-                headers={"Content-Disposition": "inline; filename=error.mp3"}
-            )
-        
-        # Get coaching response
-        answer, emotion_type = mentor_answer(full_query, retriever, memory, llm)
-        
-        print(f" Coach response: {answer}")
-        print(f" Emotion: {emotion_type}")
-        
-        if not answer or len(answer.strip()) < 3:
-            return {"error": "Could not generate coaching response."}
-        1
-        # Generate audio response
-        audio_stream = speak_text_to_stream(answer)
-        audio_bytes = audio_stream.getvalue()
-        
-        print(f" Audio bytes generated: {len(audio_bytes)}")
-        
-        if len(audio_bytes) == 0:
-            return {"error": "Generated audio is empty."}
-        
-        return Response(
-            audio_bytes,
-            media_type="audio/mpeg",
-            headers={"Content-Disposition": "inline; filename=coaching_response.mp3"}
-        )
-        
-    except Exception as e:
-        import traceback
-        print("VOICE ERROR:", traceback.format_exc())
-        return {"error": str(e)}
+app = FastAPI(title="Master Chef Continuous Voice API", lifespan=lifespan, docs_url="/docs", redoc_url="/redoc")
 
-@app.post("/coach_audio_input/")
-async def coach_audio_input(file: UploadFile = File(...)):
-    """Audio question → Audio coaching response (full voice interaction)"""
-    try:
-        print(" Processing audio coaching session...")
-        
-        # Read and transcribe audio
-        audio_bytes = await file.read()
-        transcription = transcribe_audio(audio_bytes, client)
-        
-        if not transcription:
-            error_msg = "I couldn't understand your question clearly. Could you try again?"
-            audio_stream = speak_text_to_stream(error_msg)
-            return Response(
-                audio_stream.getvalue(),
-                media_type="audio/mpeg",
-                headers={"Content-Disposition": "inline; filename=clarification.mp3"}
-            )
-        
-        print(f" Transcribed: {transcription}")
-        
-        # Enhance and validate question
-        full_query = autocomplete_if_needed(transcription, memory, llm)
-        
-        if not is_recipe_related(full_query):
-            error_msg = "I'm here to coach you on cooking techniques and culinary principles. What would you like to learn about cooking?"
-            audio_stream = speak_text_to_stream(error_msg)
-            return Response(
-                audio_stream.getvalue(),
-                media_type="audio/mpeg",
-                headers={"Content-Disposition": "inline; filename=redirect.mp3"}
-            )
-        
-        # Generate coaching response
-        answer, emotion_type = mentor_answer(full_query, retriever, memory, llm)
-        
-        print(f" Coach response: {answer}")
-        
-        # Convert to audio
-        audio_stream = speak_text_to_stream(answer)
-        audio_bytes = audio_stream.getvalue()
-        
-        print(f" Response audio: {len(audio_bytes)} bytes")
-        
-        return Response(
-            audio_bytes,
-            media_type="audio/mpeg",
-            headers={"Content-Disposition": "inline; filename=coaching_session.mp3"}
-        )
-        
-    except Exception as e:
-        import traceback
-        print("AUDIO SESSION ERROR:", traceback.format_exc())
-        error_msg = "I'm having trouble processing your audio. Let's try again with your cooking question."
-        audio_stream = speak_text_to_stream(error_msg)
-        return Response(
-            audio_stream.getvalue(),
-            media_type="audio/mpeg",
-            headers={"Content-Disposition": "inline; filename=error_recovery.mp3"}
-        )
+class InitChatResponse(BaseModel):
+    user_id: str
+    text: str
+    audio_base64: str
 
-# Legacy endpoints for backward compatibility
-@app.post("/qa_text_to_speech/")
-async def qa_text_to_speech(data: TextQuestion):
-    """Legacy endpoint - redirects to coach_voice"""
-    return await culinary_coach_voice(data)
+class AskQuestionRequest(BaseModel):
+    user_id: str
+    voice_base64: str    # MP3 Base64
 
+class AskQuestionResponse(BaseModel):
+    text: str
+    audio_base64: str
 
-@app.post("/ask_audio_base64/")
-async def ask_audio_base64(file: UploadFile = File(...)):
-    """
-    User sends audio (question) → Mentor answers with Base64 audio
-    """
-    audio_bytes = await file.read()
-    transcription = transcribe_audio(audio_bytes, client)
- 
-    if not transcription:
-        msg = "I couldn't understand clearly, please try again."
-        audio_stream = speak_text_to_stream(msg)
-    else:
-        full_query = autocomplete_if_needed(transcription, memory, llm)
- 
-        if not is_recipe_related(full_query):
-            msg = "I'm here to coach you on cooking techniques and culinary principles."
-            audio_stream = speak_text_to_stream(msg)
-        else:
-            answer, emotion = mentor_answer(full_query, retriever, memory, llm)
-            audio_stream = speak_text_to_stream(answer)
- 
+# # Initialize Assistant
+# chef = MasterChefAssistant()
+# if not chef.initialize():
+#     raise RuntimeError("Failed to initialize MasterChefAssistant")
+
+# -----------------------------
+# Helper: Convert MP3 Base64 → WAV temp file
+# -----------------------------
+def mp3_base64_to_wav_file(mp3_base64: str) -> str:
+    audio_bytes = base64.b64decode(mp3_base64)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_mp3:
+        tmp_mp3.write(audio_bytes)
+        mp3_path = tmp_mp3.name
+
+    wav_path = mp3_path.replace(".mp3", ".wav")
+    audio = AudioSegment.from_mp3(mp3_path)
+    audio.export(wav_path, format="wav")
+    return wav_path
+
+# -----------------------------
+# Voice → Text
+# -----------------------------
+def voice_to_text_mp3(voice_base64: str) -> str:
+    wav_path = mp3_base64_to_wav_file(voice_base64)
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(wav_path) as source:
+        audio_data = recognizer.record(source)
+        try:
+            return recognizer.recognize_google(audio_data, language="en-US")
+        except sr.UnknownValueError:
+            return ""
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Speech recognition error: {e}")
+
+# -----------------------------
+# Init Chat API
+# -----------------------------
+@app.get("/init_chat")
+def initialize_chat(session: Session = Depends(get_session),):
+    ai_greet = "Hello! I'm your Master Chef voice assistant. I can guide you step-by-step through any recipe or cooking technique today."
+
+    # Convert Initial response to Base64 MP3
+    audio_stream = speak_text_to_stream(ai_greet, 'WV7clvf1VUCp942OSohW')
     audio_bytes = audio_stream.getvalue()
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
- 
-    return JSONResponse(content={
-        "user_question": transcription if transcription else None,
-        "audio_base64": audio_base64,
-        "format": "mp3"
-    })
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Generating Unique Id
+    user_id = str(uuid.uuid4()) + str(int(datetime.timestamp(datetime.now())))
+
+    # Saving to DB
+    msg = ChatMessage(user_id=user_id, type='model', text=ai_greet)
+    session.add(msg)
+    session.commit()
+    session.refresh(msg)
+
+    return InitChatResponse(user_id=user_id, text=ai_greet, audio_base64=audio_base64)
+
+
+@app.get("/chat/messages")
+def list_messages(
+    session: Session = Depends(get_session),
+    user_id: str | None = None,
+    limit: int = Query(100, le=100),
+):
+    stmt = select(ChatMessage).order_by(ChatMessage.created_at.desc()).limit(limit)
+    if user_id is not None:
+        stmt = stmt.where(ChatMessage.user_id == user_id)
+    return session.exec(stmt).all()
+
+
+# -----------------------------
+# Ask Question API
+# -----------------------------
+@app.post("/ask_question_loop", response_model=AskQuestionResponse)
+def ask_question_loop(request: AskQuestionRequest, session: Session = Depends(get_session),):
+    question_text = voice_to_text_mp3(request.voice_base64)
+    print('==question_text===',question_text)
+    if not question_text:
+        raise HTTPException(status_code=400, detail="Could not understand the audio")
+
+    question_text='Tell me step by step'
+    user_msg = ChatMessage(user_id=request.user_id, type='user', text=question_text)
+    session.add(user_msg)
+    session.commit()
+    session.refresh(user_msg)
+
+    # Generate AI response
+    chef.set_dish(question_text)
+    response_text = chef.mentor_answer(request.user_id, question_text, session)
+
+    # Add "Have any other questions?" to response
+    response_text_loop = response_text + " Have any other questions?"
+
+    # Convert AI response to Base64 MP3
+    audio_stream = speak_text_to_stream(response_text_loop, 'WV7clvf1VUCp942OSohW')
+    audio_bytes = audio_stream.getvalue()
+    audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+
+    agent_msg = ChatMessage(user_id=request.user_id, type='model', text=response_text_loop)
+    session.add(agent_msg)
+    session.commit()
+    session.refresh(agent_msg)
+
+    return AskQuestionResponse(text=response_text_loop, audio_base64=audio_base64)
