@@ -52,6 +52,7 @@ class InitChatResponse(BaseModel):
 
 class AskQuestionRequest(BaseModel):
     user_id: str
+    text: str
     voice_base64: str    # MP3 Base64
 
 class AskQuestionResponse(BaseModel):
@@ -133,34 +134,44 @@ def list_messages(
 # -----------------------------
 @app.post("/ask_question_loop", response_model=AskQuestionResponse)
 def ask_question_loop(request: AskQuestionRequest, session: Session = Depends(get_session),):
-    question_text = voice_to_text_mp3(request.voice_base64)
-    print('==question_text===',question_text)
+    user_text = request.text.strip()
+    user_base64 = request.voice_base64
+    question_text = ''
+    if user_text == '' and user_base64 != '':
+        question_text = voice_to_text_mp3(user_base64)
+        print('==question_text===',question_text)
+   
+    elif user_text != '' and user_base64 == '':
+        question_text = user_text
+   
+    elif user_text == '' and user_base64 == '':
+        raise HTTPException(status_code=400, detail="Please send audio or text!")
+ 
     if not question_text:
-        raise HTTPException(status_code=400, detail="Could not understand the audio")
-
-    question_text='Tell me step by step'
+        raise HTTPException(status_code=400, detail="Could not understand the audio!")
+ 
     user_msg = ChatMessage(user_id=request.user_id, type='user', text=question_text)
     session.add(user_msg)
     session.commit()
     session.refresh(user_msg)
-
+ 
     # Generate AI response
     chef.set_dish(question_text)
     response_text = chef.mentor_answer(request.user_id, question_text, session)
-
+ 
     # Add "Have any other questions?" to response
     response_text_loop = response_text + " Have any other questions?"
-
+ 
     # Convert AI response to Base64 MP3
     audio_stream = speak_text_to_stream(response_text_loop, 'WV7clvf1VUCp942OSohW')
     audio_bytes = audio_stream.getvalue()
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
-
+ 
     agent_msg = ChatMessage(user_id=request.user_id, type='model', text=response_text_loop)
     session.add(agent_msg)
     session.commit()
     session.refresh(agent_msg)
-
+ 
     return AskQuestionResponse(text=response_text_loop, audio_base64=audio_base64)
 
 if __name__ == "__main__":
