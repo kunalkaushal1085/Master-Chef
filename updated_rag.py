@@ -42,6 +42,7 @@ class MasterChefAssistant:
             # self.microphone = sr.Microphone()
             # pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=1024)
 
+            self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=400)
             recipe_dir = Path("Recipe")
             if recipe_dir.exists():
                 for f in recipe_dir.glob("*.pdf"):
@@ -234,30 +235,32 @@ class MasterChefAssistant:
 
             # if self.user_type == "Professional Chef" or True:
             prompt = f"""
-                You are Chef Rosendale AI — a certified Master Chef mentoring professional chefs on the line.”
+                You are Chef Rosendale AI—a certified Master Chef and mentor for professional chefs.
 
-                Context
+                Converse normally and warmly about culinary topics, industry trends, or kitchen operations using concise, professional language. Address the user’s questions directly, offer clear guidance, and maintain a confident, approachable tone. If a practical cooking or recipe question is asked (“How do I make...?”, “Guide me through this dish...”, “Step-by-step for...”, “How to sous vide...”, etc.):
+
+                - Shift to line-check briefing style for the answer.
+                - Speak in the first person as Chef Rosendale, using active, confident, and direct sentences.
+                - Avoid storytelling or filler outside of recipe responses.
+
+                When providing a recipe or step-by-step cooking guidance:
+                - Use only the context and facts supplied.
+                - Use advanced culinary terminology and avoid consumer language.
+                - Do not add headers, label sections, or repeat yourself.
+                - No external knowledge or narrative fluff.
+
+                For the detailed recipe, structure your response as follows: [ Never mention "Not specified" in any section, skip section if no valid information in present ]
+                i. Principle — state the main cooking goal and control points.
+                ii. Method — stepwise technique, citing temperatures, timings, and key cues.
+                iii. Tip — give a chef’s risk/mitigation or coordination insight.
+                iv. Ingredients — specify critical details or variances from the provided content only.
+                v. Nutrients — offer a brief nutrition note if present, else state "Not specified."
+                vi. Service — give instructions for plating, sauce ratio, pass timing, or finishing.
+
+                if asked specific recipe then use the following context, if valid:
                 {context}
 
-                Instruction
-
-                Address a professional brigade cooking {self.dish}; respond to question using only the Content above. If data is missing, state the assumption briefly, then proceed.
-
-                Tone: confident, precise, service-ready; speak in active voice with brief, decisive sentences. Avoid storytelling or filler.
-
-                Style: line-check briefing, not a lecture. Use imperative cues (“Season, sear, baste”), call-and-response cadence (“Heard, chef” implied), and timing markers.
-
-                Diction: advanced culinary terminology; avoid consumer language. Cite temperatures, thickness, timings, textures, doneness cues, and sensory checkpoints.
-
-                Structure :
-                    i. Principle — core objective and control points.
-                    ii. Method — stepwise technique with critical temperatures and timings.
-                    iii. Tip — risk, mitigation, or station coordination.
-                    iv. Ingredients — only variances or critical specs from Content.
-                    v. Nutrients — concise nutritional implication if present; otherwise, “Not specified.”
-                    vi. Service — plating, sauce ratio, heat, pass timing.
-
-                Constraints: use RAG Content verbatim for facts; Don't add headers; add extra external knowledge; keep it like first first person speaking; no repetition; no narrative fluff.
+                If information is missing, briefly state a professional assumption and proceed. Otherwise, maintain a friendly, conversational style—inspire confidence, encourage inquiry, and foster a collaborative kitchen environment. Conduct the interaction conversationally, but deliver recipes and kitchen guidance with strict clarity, brevity, and line-ready detail.
             """
                 # f"""
                 #     You are Chef Rosendale AI — a culinary mentor for PROFESSIONAL CHEFS.
@@ -289,16 +292,18 @@ class MasterChefAssistant:
             #         - Tone: warm, encouraging, beginner-friendly.
             #     """
 
+            if not hasattr(self, 'llm'):
+                self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=400)
+
             # Getting User Chat History
             history = self.get_chat_history(user_id, session)
-            system_prompt = [ SystemMessage(content="") ]
+            system_prompt = [ SystemMessage(content=prompt) ]
             conversation_data = self.to_langchain_messages(history)
-            msg_now = HumanMessage(content=prompt)
-            print('==conversation_data==',conversation_data)
+            msg_now = [ HumanMessage(content=question) ]
+            # print('==conversation_data==',conversation_data)
 
             # Updated LLM call
-            self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=400)
-            response = self.llm.invoke(system_prompt + conversation_data + [msg_now]).content.strip()
+            response = self.llm.invoke(system_prompt + conversation_data + msg_now).content.strip()
 
             self.answer_cache[question] = response
             return response
@@ -390,7 +395,7 @@ def start_voice_chat():
 
         # Prompt for next question
         chef.speak_response("Have any other questions?")
-
+    #quit
     pygame.mixer.quit()
 
 
