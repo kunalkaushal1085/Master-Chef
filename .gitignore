@@ -16,3 +16,6 @@ main.zip
 
 # Ignore chroma DBs
 chroma_rosendale
+
+## add database to git ignore
+*.db
