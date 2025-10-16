@@ -120,7 +120,7 @@ def ask_question_loop(request: AskQuestionRequest, user_id: str = Query(...), se
 
     # Generate AI response
     response_text = chef.mentor_answer(user_id, question_text, session)
-    response_text_loop = response_text + " Have any other questions?"
+    response_text_loop = response_text
 
     # Append bot message
     chat_row.append_chat("model", response_text_loop)
