@@ -5,6 +5,8 @@ from elevenlabs import ElevenLabs  # Import the ElevenLabs class, not client
 from dotenv import load_dotenv
 
 load_dotenv()
+load_dotenv()
+ELEVENLABS_VOICE_ID=os.getenv("ELEVENLABS_VOICE_ID", "O483h7ZB7zKaA4JmK9Wv")
 
 # Initialize ElevenLabs client correctly
 elevenlabs_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
@@ -30,7 +32,7 @@ def clean_text_for_speech(text):
 
 # def speak_text_to_stream(text, voice_id="O483h7ZB7zKaA4JmK9Wv"):#previous voice 29-08-25
 # def speak_text_to_stream(text, voice_id="Mo9SFAWCFwzIAmrZsCLd"):#v2 voice use
-def speak_text_to_stream(text, voice_id="mEE6giLueLdSOaKRUws3"):#Thomas voice
+def speak_text_to_stream(text, voice_id="O483h7ZB7zKaA4JmK9Wv"):#Thomas voice
     """Convert text to speech and return as BytesIO stream"""
     try:
         cleaned = clean_text_for_speech(text)
