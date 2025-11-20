@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 load_dotenv()
 ELEVENLABS_VOICE_ID=os.getenv("ELEVENLABS_VOICE_ID", "O483h7ZB7zKaA4JmK9Wv")
 
+print("Using ElevenLabs Voice ID:", ELEVENLABS_VOICE_ID)
+
 from db import get_session, create_db_and_tables  # import DB helpers
 from models import ChatMessage  # import models
 chef: MasterChefAssistant | None = None
@@ -105,7 +107,7 @@ def initialize_chat(session: Session = Depends(get_session),):
     ai_greet = "Hello! I'm your Master Chef voice assistant. I can guide you step-by-step through any recipe or cooking technique today."
 
     # Convert Initial response to Base64 MP3
-    audio_stream = speak_text_to_stream(ai_greet, 'ELEVENLABS_VOICE_ID')
+    audio_stream = speak_text_to_stream(ai_greet, ELEVENLABS_VOICE_ID)
     audio_bytes = audio_stream.getvalue()
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
 
@@ -167,7 +169,7 @@ def ask_question_loop(request: AskQuestionRequest, session: Session = Depends(ge
     response_text_loop = response_text + " Have any other questions?"
  
     # Convert AI response to Base64 MP3
-    audio_stream = speak_text_to_stream(response_text_loop, 'ELEVENLABS_VOICE_ID')
+    audio_stream = speak_text_to_stream(response_text_loop, ELEVENLABS_VOICE_ID)
     audio_bytes = audio_stream.getvalue()
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
  
