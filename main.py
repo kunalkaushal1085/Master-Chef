@@ -104,7 +104,7 @@ def voice_to_text_mp3(voice_base64: str) -> str:
 # -----------------------------
 @app.get("/init_chat")
 def initialize_chat(session: Session = Depends(get_session),):
-    ai_greet = "Hello! I'm your Master Chef voice assistant. I can guide you step-by-step through any recipe or cooking technique today."
+    ai_greet = "Hello! I'm your AI Master Chef Rosendale. I can guide you step-by-step through any recipe or cooking technique today."
 
     # Convert Initial response to Base64 MP3
     audio_stream = speak_text_to_stream(ai_greet, ELEVENLABS_VOICE_ID)
