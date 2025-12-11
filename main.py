@@ -166,7 +166,7 @@ def ask_question_loop(request: AskQuestionRequest, session: Session = Depends(ge
     response_text = chef.mentor_answer(request.user_id, question_text, session)
  
     # Add "Have any other questions?" to response
-    response_text_loop = response_text + " Have any other questions?"
+    response_text_loop = response_text
  
     # Convert AI response to Base64 MP3
     audio_stream = speak_text_to_stream(response_text_loop, ELEVENLABS_VOICE_ID)
