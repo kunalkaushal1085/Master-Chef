@@ -585,6 +585,66 @@ class MasterChefAssistant:
         print("✅ Vector Database Initialized Successfully!")
 
     # ----------------------------- #
+    # Add single PDF to existing vector store
+    # ----------------------------- #
+    def add_pdf_to_rag(self, pdf_path: Path) -> dict:
+        """
+        Add a single PDF file to the existing RAG system.
+        Returns dict with status and details.
+        """
+        try:
+            print(f"\n📄 Adding PDF to RAG: {pdf_path}")
+            
+            # Ensure vector_db is initialized
+            if self.vector_db is None:
+                load_dotenv()
+                self.vector_db = Chroma(
+                    persist_directory="./chroma_rosendale",
+                    embedding_function=OpenAIEmbeddings(),
+                )
+                print("   → Vector DB initialized")
+            
+            # Load PDF
+            loader = PyPDFLoader(str(pdf_path))
+            docs = loader.load()
+            pages_count = len(docs)
+            print(f"   → Pages loaded: {pages_count}")
+            
+            # Attach metadata
+            for doc in docs:
+                doc.metadata["source"] = pdf_path.name
+            
+            # Split into chunks
+            splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=80)
+            split_docs = splitter.split_documents(docs)
+            chunks_count = len(split_docs)
+            print(f"   → Chunks created: {chunks_count}")
+            
+            # Add to vector DB
+            self.vector_db.add_documents(split_docs)
+            print("   → Added to Chroma successfully")
+            
+            # Update recipe_list
+            self.recipe_list[pdf_path.stem.lower()] = pdf_path
+            print(f"   → Added to recipe_list: {pdf_path.stem.lower()}")
+            
+            return {
+                "success": True,
+                "filename": pdf_path.name,
+                "pages": pages_count,
+                "chunks": chunks_count,
+                "message": "PDF successfully added to RAG system"
+            }
+        except Exception as e:
+            print(f"   ❌ Failed to add PDF: {e}")
+            return {
+                "success": False,
+                "filename": pdf_path.name if pdf_path else "unknown",
+                "error": str(e),
+                "message": f"Failed to add PDF to RAG system: {str(e)}"
+            }
+
+    # ----------------------------- #
     # Build per-PDF retriever if user selects a specific pdf/dish
     # ----------------------------- #
     def init_chain(self, selected_pdf: Path):

@@ -5,6 +5,11 @@ import enum
 from datetime import datetime, timezone
 from sqlmodel import SQLModel, Field
 
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy.sql import func
+from db import Base
+ 
+
 class ChatRole(str, enum.Enum):
     user = "user"
     model = "model"
@@ -21,3 +26,22 @@ class ChatMessage(ChatMessageBase, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         description="UTC timestamp"
     )
+
+class User(Base):
+    __tablename__ = "users"
+ 
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password = Column(String, nullable=False)
+    is_admin = Column(Boolean, default=True)  # default admin = True
+    last_login = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class UploadedPDF(Base):
+    __tablename__ = "uploaded_pdfs"
+ 
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, unique=True, index=True, nullable=False)
+    file_path = Column(String, nullable=False)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    uploaded_by = Column(Integer, nullable=False)  # User ID who uploaded
